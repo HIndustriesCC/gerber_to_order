@@ -79,7 +79,7 @@ def getArcMinMaxPoints(draw):
 def getMinMax2DimOfBoard(board):
     minMax2Dim = MinMax2DimHolder()
 
-    for draw in board.GetDrawings():
+    def updateMinMax2DimByDrawing(draw):
         if draw.GetClass() in ["DRAWSEGMENT", "PCB_SHAPE"] and draw.GetLayerName() == 'Edge.Cuts':
             if draw.GetShape() == pcbnew.S_ARC:
                 for point in getArcMinMaxPoints(draw):
@@ -94,6 +94,12 @@ def getMinMax2DimOfBoard(board):
             else:
                 minMax2Dim.updateMinMax(draw.GetStart())
                 minMax2Dim.updateMinMax(draw.GetEnd())
+
+    for draw in board.GetDrawings():
+        updateMinMax2DimByDrawing(draw)
+    for footprint in board.GetFootprints():
+        for graphicalItem in footprint.GraphicalItems():
+            updateMinMax2DimByDrawing(graphicalItem)
 
     return minMax2Dim
     if minMax2Dim.x.isMinOrMaxNone() or minMax2Dim.y.isMinOrMaxNone():
