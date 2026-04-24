@@ -136,25 +136,6 @@ pcbServices = [
 ]
 
 
-def sanitizeForFilename(text):
-    sanitized = re.sub(r'[^\w\-]', '_', text)
-    sanitized = re.sub(r'_+', '_', sanitized)
-    return sanitized.strip('_')
-
-
-def boardNameFromTitleBlock(board):
-    titleBlock = board.GetTitleBlock()
-    title = titleBlock.GetTitle().strip()
-    revision = titleBlock.GetRevision().strip()
-    if title and revision:
-        return '%s_rev_%s' % (sanitizeForFilename(title), sanitizeForFilename(revision))
-    if title:
-        return sanitizeForFilename(title)
-    if revision:
-        return 'rev_%s' % sanitizeForFilename(revision)
-    return None
-
-
 def removeFileIfExists(fileNameWildCard, retryRemainingCount = retryCount):
     for fileName in glob.glob(fileNameWildCard):
         if os.path.exists(fileName):
@@ -288,12 +269,11 @@ def createZip(
         drillMinimalHeader,
         sizeLabel,
         keepGerbers,
-        boardProjectNameOverride=None,
 ):
     board = pcbnew.GetBoard()
     boardFileName = board.GetFileName()
     boardDirPath = os.path.dirname(boardFileName)
-    boardProjectName = boardProjectNameOverride if boardProjectNameOverride else (os.path.splitext(os.path.basename(boardFileName)))[0]
+    boardProjectName = (os.path.splitext(os.path.basename(boardFileName)))[0]
 
     outputDirPath = '%s/%s' % (boardDirPath, outputDirName)
     gerberDirNameWildCard = '%s' % boardProjectName
@@ -353,9 +333,6 @@ class Dialog(wx.Dialog):
         sizerVertical.Add(self.manufacturer, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         self.keepGerbers = wx.CheckBox(self, label="Keep folder(s) with gerbers layers")
         sizerVertical.Add(self.keepGerbers, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
-        self.useTitleRevision = wx.CheckBox(self, label="Use title and revision for name")
-        self.useTitleRevision.SetValue(True)
-        sizerVertical.Add(self.useTitleRevision, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         btnExport = wx.Button(self, label="Export")
         btnCancel = wx.Button(self, label="Cancel")
         btnExport.SetDefault()
@@ -374,12 +351,8 @@ class Dialog(wx.Dialog):
     def OnExec(self,e):
         try:
             zipFiles = []
-            board = pcbnew.GetBoard()
-            sizeLabel = createSizeLabelOfBoard(board)
+            sizeLabel = createSizeLabelOfBoard(pcbnew.GetBoard())
             keepGerbers = self.keepGerbers.GetValue()
-            nameOverride = boardNameFromTitleBlock(board) if self.useTitleRevision.GetValue() else None
-            if nameOverride is None and self.useTitleRevision.GetValue():
-                wx.MessageBox('Title and revision are both empty; using folder name instead.', pluginName, wx.OK|wx.ICON_INFORMATION)
             if self.manufacturer.GetSelection() == 0:
                 pcbServicesToProcess = pcbServices
             else:
@@ -395,8 +368,7 @@ class Dialog(wx.Dialog):
                     layerRenameRules = pcbService['layerRenameRules'],
                     drillExtensionRenameTo = pcbService['drillExtensionRenameTo'],
                     sizeLabel = sizeLabel,
-                    keepGerbers = keepGerbers,
-                    boardProjectNameOverride = nameOverride,
+                    keepGerbers = keepGerbers
                 )
                 zipFiles.append(path)
             if len(zipFiles) > 0:
