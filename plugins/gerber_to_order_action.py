@@ -354,7 +354,7 @@ class Dialog(wx.Dialog):
         self.keepGerbers = wx.CheckBox(self, label="Keep folder(s) with gerbers layers")
         sizerVertical.Add(self.keepGerbers, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         self.useTitleRevision = wx.CheckBox(self, label="Use title and revision for name")
-        self.useTitleRevision.SetValue(True)
+        self.useTitleRevision.SetValue(False)
         sizerVertical.Add(self.useTitleRevision, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         btnExport = wx.Button(self, label="Export")
         btnCancel = wx.Button(self, label="Cancel")
