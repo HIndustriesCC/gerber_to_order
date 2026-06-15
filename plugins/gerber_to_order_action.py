@@ -47,6 +47,7 @@ pcbServices = [
         'drillMinimalHeader': False,
         'layerRenameRules': {},
         'drillExtensionRenameTo': None,
+        'subtractMaskfromSilk': False,
     },
     {
         # https://www.elecrow.com/pcb-manufacturing.html
@@ -56,6 +57,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': False,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': False,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -80,6 +82,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': True,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': False,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -98,6 +101,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.SUPPRESS_LEADING,
         'drillMergeNpth': False,
         'drillMinimalHeader': True,
+        'subtractMaskfromSilk': True,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -118,6 +122,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': False,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': True,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -185,6 +190,7 @@ def plotLayers(
         gerberProtelExtensions,
         layerRenameRules,
         boardProjectName,
+        subtractMaskfromSilk,
 ):
     targetLayerCount = board.GetCopperLayerCount() + 7
     pc = pcbnew.PLOT_CONTROLLER(board)
@@ -202,6 +208,7 @@ def plotLayers(
     po.SetSubtractMaskFromSilk(False)
     po.SetUseAuxOrigin(useAuxOrigin)
     po.SetUseGerberProtelExtensions(gerberProtelExtensions)
+    po.SetSubtractMaskFromSilk(subtractMaskfromSilk)
     if hasattr(pcbnew, "PCB_PLOT_PARAMS.NO_DRILL_SHAPE"):
         po.SetDrillMarksType(pcbnew.PCB_PLOT_PARAMS.NO_DRILL_SHAPE)
     po.SetSkipPlotNPTH_Pads(False)
@@ -269,6 +276,7 @@ def createZip(
         drillMinimalHeader,
         sizeLabel,
         keepGerbers,
+        subtractMaskfromSilk,
 ):
     board = pcbnew.GetBoard()
     boardFileName = board.GetFileName()
@@ -302,6 +310,7 @@ def createZip(
         gerberProtelExtensions = gerberProtelExtensions,
         layerRenameRules = layerRenameRules,
         boardProjectName = boardProjectName,
+        subtractMaskfromSilk = subtractMaskfromSilk,
     )
 
     plotDrill(
@@ -368,7 +377,8 @@ class Dialog(wx.Dialog):
                     layerRenameRules = pcbService['layerRenameRules'],
                     drillExtensionRenameTo = pcbService['drillExtensionRenameTo'],
                     sizeLabel = sizeLabel,
-                    keepGerbers = keepGerbers
+                    keepGerbers = keepGerbers,
+                    subtractMaskfromSilk= pcbService['subtractMaskfromSilk']
                 )
                 zipFiles.append(path)
             if len(zipFiles) > 0:
