@@ -405,7 +405,7 @@ class Dialog(wx.Dialog):
                     drillExtensionRenameTo = pcbService['drillExtensionRenameTo'],
                     sizeLabel = sizeLabel,
                     keepGerbers = keepGerbers,
-                    subtractMaskfromSilk= pcbService['subtractMaskfromSilk'],
+                    subtractMaskfromSilk = pcbService['subtractMaskfromSilk'],
                     boardProjectNameOverride = nameOverride,
                 )
                 zipFiles.append(path)
