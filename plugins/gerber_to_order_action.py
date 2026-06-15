@@ -147,7 +147,7 @@ def sanitizeForFilename(text):
     return sanitized.strip('_')
 
 
-def boardNameFromTitleBlock(board):
+def buildBoardNameByTitleRevision(board):
     titleBlock = board.GetTitleBlock()
     title = titleBlock.GetTitle().strip()
     revision = titleBlock.GetRevision().strip()
@@ -356,14 +356,16 @@ def createZip(
 class Dialog(wx.Dialog):
     def __init__(self, parent):
         super().__init__(parent, title="Export Options")
+        board = pcbnew.GetBoard()
         sizerVertical = wx.BoxSizer(wx.VERTICAL|wx.EXPAND)
         manufacturer_choices = ["All manufacturers"] + [service["name"] for service in pcbServices]
         self.manufacturer = wx.RadioBox(self, label="Select manufacturer to export", choices=manufacturer_choices, style=wx.RA_VERTICAL)
         sizerVertical.Add(self.manufacturer, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         self.keepGerbers = wx.CheckBox(self, label="Keep folder(s) with gerbers layers")
         sizerVertical.Add(self.keepGerbers, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
-        self.useTitleRevision = wx.CheckBox(self, label="Use title and revision for name")
-        self.useTitleRevision.SetValue(False)
+        self.useTitleRevision = wx.CheckBox(self, label= "Use title and revision for name")
+        if buildBoardNameByTitleRevision(board) is None:
+            self.useTitleRevision.Disable()
         sizerVertical.Add(self.useTitleRevision, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         btnExport = wx.Button(self, label="Export")
         btnCancel = wx.Button(self, label="Cancel")
@@ -386,9 +388,7 @@ class Dialog(wx.Dialog):
             board = pcbnew.GetBoard()
             sizeLabel = createSizeLabelOfBoard(board)
             keepGerbers = self.keepGerbers.GetValue()
-            nameOverride = boardNameFromTitleBlock(board) if self.useTitleRevision.GetValue() else None
-            if nameOverride is None and self.useTitleRevision.GetValue():
-                wx.MessageBox('Title and revision are both empty; using folder name instead.', pluginName, wx.OK|wx.ICON_INFORMATION)
+            nameOverride = buildBoardNameByTitleRevision(board) if self.useTitleRevision.GetValue() else None
             if self.manufacturer.GetSelection() == 0:
                 pcbServicesToProcess = pcbServices
             else:
