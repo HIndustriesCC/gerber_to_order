@@ -47,6 +47,7 @@ pcbServices = [
         'drillMinimalHeader': False,
         'layerRenameRules': {},
         'drillExtensionRenameTo': None,
+        'subtractMaskfromSilk': False,
     },
     {
         # https://www.elecrow.com/pcb-manufacturing.html
@@ -56,6 +57,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': False,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': False,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -80,6 +82,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': True,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': False,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -98,6 +101,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.SUPPRESS_LEADING,
         'drillMergeNpth': False,
         'drillMinimalHeader': True,
+        'subtractMaskfromSilk': True,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -118,6 +122,7 @@ pcbServices = [
         'excellonFormat': pcbnew.EXCELLON_WRITER.DECIMAL_FORMAT,
         'drillMergeNpth': False,
         'drillMinimalHeader': False,
+        'subtractMaskfromSilk': True,
         'layerRenameRules': {
             pcbnew.F_Cu:      '[boardProjectName].GTL',
             pcbnew.B_Cu:      '[boardProjectName].GBL',
@@ -134,6 +139,25 @@ pcbServices = [
         'drillExtensionRenameTo': 'TXT',
     },
 ]
+
+
+def sanitizeForFilename(text):
+    sanitized = re.sub(r'[^\w\-]', '_', text)
+    sanitized = re.sub(r'_+', '_', sanitized)
+    return sanitized.strip('_')
+
+
+def buildBoardNameByTitleRevision(board):
+    titleBlock = board.GetTitleBlock()
+    title = titleBlock.GetTitle().strip()
+    revision = titleBlock.GetRevision().strip()
+    if title and revision:
+        return '%s_rev_%s' % (sanitizeForFilename(title), sanitizeForFilename(revision))
+    if title:
+        return sanitizeForFilename(title)
+    if revision:
+        return 'rev_%s' % sanitizeForFilename(revision)
+    return None
 
 
 def removeFileIfExists(fileNameWildCard, retryRemainingCount = retryCount):
@@ -185,6 +209,7 @@ def plotLayers(
         gerberProtelExtensions,
         layerRenameRules,
         boardProjectName,
+        subtractMaskfromSilk,
 ):
     targetLayerCount = board.GetCopperLayerCount() + 7
     pc = pcbnew.PLOT_CONTROLLER(board)
@@ -202,6 +227,7 @@ def plotLayers(
     po.SetSubtractMaskFromSilk(False)
     po.SetUseAuxOrigin(useAuxOrigin)
     po.SetUseGerberProtelExtensions(gerberProtelExtensions)
+    po.SetSubtractMaskFromSilk(subtractMaskfromSilk)
     if hasattr(pcbnew, "PCB_PLOT_PARAMS.NO_DRILL_SHAPE"):
         po.SetDrillMarksType(pcbnew.PCB_PLOT_PARAMS.NO_DRILL_SHAPE)
     po.SetSkipPlotNPTH_Pads(False)
@@ -269,11 +295,13 @@ def createZip(
         drillMinimalHeader,
         sizeLabel,
         keepGerbers,
+        subtractMaskfromSilk,
+        boardProjectNameOverride=None,
 ):
     board = pcbnew.GetBoard()
     boardFileName = board.GetFileName()
     boardDirPath = os.path.dirname(boardFileName)
-    boardProjectName = (os.path.splitext(os.path.basename(boardFileName)))[0]
+    boardProjectName = boardProjectNameOverride if boardProjectNameOverride else (os.path.splitext(os.path.basename(boardFileName)))[0]
 
     outputDirPath = '%s/%s' % (boardDirPath, outputDirName)
     gerberDirNameWildCard = '%s' % boardProjectName
@@ -302,6 +330,7 @@ def createZip(
         gerberProtelExtensions = gerberProtelExtensions,
         layerRenameRules = layerRenameRules,
         boardProjectName = boardProjectName,
+        subtractMaskfromSilk = subtractMaskfromSilk,
     )
 
     plotDrill(
@@ -327,12 +356,17 @@ def createZip(
 class Dialog(wx.Dialog):
     def __init__(self, parent):
         super().__init__(parent, title="Export Options")
+        board = pcbnew.GetBoard()
         sizerVertical = wx.BoxSizer(wx.VERTICAL|wx.EXPAND)
         manufacturer_choices = ["All manufacturers"] + [service["name"] for service in pcbServices]
         self.manufacturer = wx.RadioBox(self, label="Select manufacturer to export", choices=manufacturer_choices, style=wx.RA_VERTICAL)
         sizerVertical.Add(self.manufacturer, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         self.keepGerbers = wx.CheckBox(self, label="Keep folder(s) with gerbers layers")
         sizerVertical.Add(self.keepGerbers, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
+        self.useTitleRevision = wx.CheckBox(self, label= "Use title and revision for name")
+        if buildBoardNameByTitleRevision(board) is None:
+            self.useTitleRevision.Disable()
+        sizerVertical.Add(self.useTitleRevision, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
         btnExport = wx.Button(self, label="Export")
         btnCancel = wx.Button(self, label="Cancel")
         btnExport.SetDefault()
@@ -351,8 +385,10 @@ class Dialog(wx.Dialog):
     def OnExec(self,e):
         try:
             zipFiles = []
-            sizeLabel = createSizeLabelOfBoard(pcbnew.GetBoard())
+            board = pcbnew.GetBoard()
+            sizeLabel = createSizeLabelOfBoard(board)
             keepGerbers = self.keepGerbers.GetValue()
+            nameOverride = buildBoardNameByTitleRevision(board) if self.useTitleRevision.GetValue() else None
             if self.manufacturer.GetSelection() == 0:
                 pcbServicesToProcess = pcbServices
             else:
@@ -368,7 +404,9 @@ class Dialog(wx.Dialog):
                     layerRenameRules = pcbService['layerRenameRules'],
                     drillExtensionRenameTo = pcbService['drillExtensionRenameTo'],
                     sizeLabel = sizeLabel,
-                    keepGerbers = keepGerbers
+                    keepGerbers = keepGerbers,
+                    subtractMaskfromSilk = pcbService['subtractMaskfromSilk'],
+                    boardProjectNameOverride = nameOverride,
                 )
                 zipFiles.append(path)
             if len(zipFiles) > 0:
